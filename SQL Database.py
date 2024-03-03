@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 fake = Faker()
 
 # Create a SQLite database connection
-conn = sqlite3.connect('bookstore.db')
+conn = sqlite3.connect('bookstore_final.db')
 cursor = conn.cursor()
 
 # Create tables
@@ -71,7 +71,37 @@ books_data = [(fake.sentence(), fake.random_element(['Fiction', 'Mystery', 'Scie
 cursor.executemany('''INSERT INTO Books (title, genre, publication_year, author_id, price) VALUES (?, ?, ?, ?, ?)''', books_data)
 
 # Generate fake data for customers
-customers_data = [(fake.name(), fake.email(), fake.random_int(min=18, max=70), fake.random_element(['Male', 'Female']), fake.address(), fake.city(), fake.state_abbr(), fake.zipcode()) for _ in range(1000)]
+customers_data = []
+
+existing_emails = set()  # To store generated emails
+
+for _ in range(1000):
+    customer_name = fake.name()
+    email = fake.email()
+    
+    # Introduce missing values and duplicates
+    if random.random() < 0.1:  # 10% chance of missing email
+        email = None
+    elif email in existing_emails:
+        email = None
+    else:
+        existing_emails.add(email)
+    
+    customer_age = fake.random_int(min=18, max=70)
+    customer_gender = fake.random_element(['Male', 'Female'])
+    
+    # Introduce missing values
+    if random.random() < 0.05:  # 5% chance of missing address and zip code
+        customer_address = None
+        customer_zipcode = None
+    else:
+        customer_address = fake.address()
+        customer_zipcode = fake.zipcode()
+    
+    customer_city = fake.city()
+    customer_state = fake.state_abbr()
+    
+    customers_data.append((customer_name, email, customer_age, customer_gender, customer_address, customer_city, customer_state, customer_zipcode))
 
 # Insert customers data into the Customers table
 cursor.executemany('''INSERT INTO Customers (customer_name, email, age, gender, address, city, state, zipcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', customers_data)
@@ -83,6 +113,9 @@ for i in range(1, 1001):  # Ensure at least 1000 rows
     order_date = datetime.now() - timedelta(days=random.randint(1, 365))
     orders_data.append((i, random.randint(1, 1000), order_date.strftime('%Y-%m-%d'), random.uniform(10, 500)))
 
+# Introduce duplicate orders
+orders_data.extend((max(orders_data)[0] + i + 1, customer_id, order_date, total_amount) for i, (order_id, customer_id, order_date, total_amount) in enumerate(orders_data[:50]))
+
 # Insert orders data into the Orders table
 cursor.executemany('''INSERT INTO Orders (order_id, customer_id, order_date, total_amount) VALUES (?, ?, ?, ?)''', orders_data)
 
@@ -91,6 +124,10 @@ order_details_data = []
 
 for i in range(1, 1001):  # Ensure at least 1000 rows
     order_details_data.append((i, random.randint(1, 1000), random.randint(1, 10), random.uniform(10, 50)))
+
+# Introduce missing values in order details
+for _ in range(50):  # Introduce 50 missing values
+    order_details_data[random.randint(0, 999)] = (None, None, None, None)
 
 # Insert order details data into the OrderDetails table
 cursor.executemany('''INSERT INTO OrderDetails (order_id, book_id, quantity, unit_price) VALUES (?, ?, ?, ?)''', order_details_data)
